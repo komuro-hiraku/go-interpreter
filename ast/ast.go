@@ -43,7 +43,7 @@ func (p *Program) String() string {
 	return out.String()
 }
 
-// Let ノード
+// Let
 type LetStatement struct {
 	Token token.Token // token.LET トークン
 	Name  *Identifier
@@ -67,7 +67,7 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
-// Return ノード
+// Return
 type ReturnStatement struct {
 	Token       token.Token // 'return' トークン
 	ReturnValue Expression
@@ -88,6 +88,21 @@ func (rt *ReturnStatement) String() string {
 	return out.String()
 }
 
+// Expression
+type ExpressionStatement struct {
+	Token token.Token
+	Expression Expression
+}
+
+func (ex *ExpressionStatement) statementNode() {}
+func (ex *ExpressionStatement) TokenLiteral() string { return ex.Token.Literal }
+func (ex *ExpressionStatement) String() string {
+	if ex.Expression != nil {
+		return ex.Expression.String()
+	}
+	return ""
+}
+
 // Identifier ノード
 type Identifier struct {
 	Token token.Token // token.IDENT トークン
@@ -98,19 +113,4 @@ func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
 func (i *Identifier) String() string {
 	return i.Value
-}
-
-// Expression ノード
-type ExpressionStatement struct {
-	Token token.Token
-	Expression Expression
-}
-
-func (ex *ExpressionStatement) expressionNode() {}
-func (ex *ExpressionStatement) TokenLiteral() string { return ex.Token.Literal }
-func (ex *ExpressionStatement) String() string {
-	if ex.Expression != nil {
-		return ex.Expression.String()
-	}
-	return ""
 }
