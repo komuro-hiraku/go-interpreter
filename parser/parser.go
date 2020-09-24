@@ -3,38 +3,39 @@ package parser
 import (
 	"fmt"
 	"strconv"
+
 	"github.com/komuro-hiraku/monkey/ast"
 	"github.com/komuro-hiraku/monkey/lexer"
 	"github.com/komuro-hiraku/monkey/token"
 )
 
 const (
-	_ int = iota	// インクリメントしながら番号を付与する。 _ = 0. 優先順位がつく
+	_ int = iota // インクリメントしながら番号を付与する。 _ = 0. 優先順位がつく
 	LOWEST
-	EQUALS	// ==
-	LESSGREATER	// > or <
-	SUM		// +
-	PRODUCT	// *
-	PREFIX	// -X or !X
-	CALL	// myFunction(x)
+	EQUALS      // ==
+	LESSGREATER // > or <
+	SUM         // +
+	PRODUCT     // *
+	PREFIX      // -X or !X
+	CALL        // myFunction(x)
 )
 
 type (
 	// 前置構文解析関数
 	prefixParseFn func() ast.Expression
 	// 中置構文解析関数
-	infixParseFn func(ast.Expression) ast.Expression 
+	infixParseFn func(ast.Expression) ast.Expression
 )
 
 type Parser struct {
-	l *lexer.Lexer
+	l      *lexer.Lexer
 	errors []string // 構文解析のエラーメッセージ格納
-	
+
 	curToken  token.Token
 	peekToken token.Token
 
 	prefixParseFns map[token.TokenType]prefixParseFn
-	infixParseFns map[token.TokenType]infixParseFn
+	infixParseFns  map[token.TokenType]infixParseFn
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -47,13 +48,23 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 	p.nextToken()
 
-	// 初期化
+	// 前置識別子の初期化
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
-
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+
+	// 中置識別子の初期化
+	p.infixParseFns = make(map[token.TokenType]infixParseFn)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
+	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(token.EQ, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
 
 	return p
 }
@@ -107,7 +118,7 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	lit := &ast.IntegerLiteral {Token: p.curToken}
+	lit := &ast.IntegerLiteral{Token: p.curToken}
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -131,13 +142,22 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	prefix := p.prefixParseFns[p.curToken.Type]	// prefixParseFunction を探す
+	prefix := p.prefixParseFns[p.curToken.Type] // prefixParseFunction を探す
 
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
+
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPredence() {
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+		p.nextToken()
+		leftExp = infix(leftExp)
+	}
 	return leftExp
 }
 
@@ -175,6 +195,21 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	return stmt
 }
 
+// 中置識別子の解析
+func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	expression := &ast.InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	precedence := p.curPredence()
+	p.nextToken()
+	expression.Right = p.parseExpression(precedence)
+
+	return expression
+}
+
 // curToken の Type が指定されたものと一致するかどうかの Assertion
 func (p *Parser) curTokenIs(t token.TokenType) bool {
 	return p.curToken.Type == t
@@ -201,15 +236,43 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	expression := &ast.PrefixExpression {
-		Token: p.curToken,
+	expression := &ast.PrefixExpression{
+		Token:    p.curToken,
 		Operator: p.curToken.Literal,
 	}
 
-	p.nextToken()	// 前置識別子を読んだので一つすすめる
+	p.nextToken() // 前置識別子を読んだので一つすすめる
 
 	expression.Right = p.parseExpression(PREFIX)
 	return expression
+}
+
+// 中置識別子の優先順位
+var precedences = map[token.TokenType]int{
+	token.EQ:       EQUALS,
+	token.NOT_EQ:   EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.SLASH:    PRODUCT,
+	token.ASTERISK: PRODUCT,
+}
+
+// 一つ先の優先順位を返す
+func (p *Parser) peekPredence() int {
+	if p, ok := precedences[p.peekToken.Type]; ok {
+		return p
+	}
+	return LOWEST
+}
+
+// 現在の優先順位を返す
+func (p *Parser) curPredence() int {
+	if p, ok := precedences[p.curToken.Type]; ok {
+		return p
+	}
+	return LOWEST
 }
 
 // ヘルパー関数
