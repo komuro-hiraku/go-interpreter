@@ -15,6 +15,8 @@ func TestEvalIntegerExpression(t *testing.T) {
 	}{
 		{"5", 5},
 		{"10", 10},
+		{"-5", -5},
+		{"-10", -10},
 	}
 
 	for _, tt := range tests {
@@ -75,7 +77,6 @@ func testBooleanObject(t *testing.T, obj object.Object, expected bool) bool {
 	return true
 }
 
-
 func TestBangOperator(t *testing.T) {
 	tests := []struct {
 		input string
@@ -94,3 +95,4 @@ func TestBangOperator(t *testing.T) {
 		testBooleanObject(t, evaluated, tt.expected)
 	}
 }
+
