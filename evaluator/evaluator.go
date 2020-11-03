@@ -5,6 +5,11 @@ import (
 	"github.com/komuro-hiraku/monkey/object"
 )
 
+var (
+	TRUE = &object.Boolean{Value: true}
+	FALSE = &object.Boolean{Value: false}
+)
+
 func Eval(node ast.Node) object.Object {
 	switch node := node.(type) {
 	//文
@@ -17,9 +22,17 @@ func Eval(node ast.Node) object.Object {
 		return &object.Integer{Value: node.Value}
 	// 真偽値
 	case *ast.Boolean:
-		return &object.Boolean{Value: node.Value}
+		return nativeBoolToBooleanObject(node.Value)
 	}
 	return nil
+}
+
+// static に宣言してあるオブジェクトを使う
+func nativeBoolToBooleanObject(input bool) *object.Boolean {
+	if input {
+		return TRUE
+	}
+	return FALSE
 }
 
 // 再帰的にStatementを評価していく
