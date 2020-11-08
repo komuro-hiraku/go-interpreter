@@ -31,6 +31,10 @@ func Eval(node ast.Node) object.Object {
 		left := Eval(node.Left)
 		right := Eval(node.Right)
 		return evalInfixExperssion(node.Operator, left, right)
+	case *ast.BlockStatement:
+		return evalStatements(node.Statements)
+	case *ast.IfExpression:
+		return evalIfExpression(node)
 	}
 	return nil
 }
@@ -89,6 +93,7 @@ func evalMinusPrefixExpression(right object.Object) object.Object {
 	return &object.Integer{Value: -value}
 }
 
+// 中間演算子
 func evalInfixExperssion(operator string, left, right object.Object) object.Object {
 	switch {
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
@@ -127,5 +132,30 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 	default:
 		return NULL
 		
+	}
+}
+
+func evalIfExpression(ie *ast.IfExpression) object.Object {
+	condition := Eval(ie.Condition)	// condition を評価
+	
+	if isTruthy(condition) {
+		return Eval(ie.Consequence)	// If側を返す
+	} else if ie.Alternative != nil {
+		return Eval(ie.Alternative)	// else側
+	} else {
+		return NULL	// elseが定義されてなければNULL
+	}
+}
+
+func isTruthy(obj object.Object) bool {
+	switch obj {
+	case NULL:
+		return false
+	case TRUE:
+		return true
+	case FALSE:
+		return false
+	default:	// default は true 扱いなのか
+		return true
 	}
 }
