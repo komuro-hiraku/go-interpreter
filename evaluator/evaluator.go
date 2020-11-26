@@ -13,32 +13,58 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
+// エラーかどうかを判定
+func isError(obj object.Object) bool {
+	if obj != nil {
+		return obj.Type() == object.ERROR_OBJ
+	}
+	return false
+}
+
 func Eval(node ast.Node) object.Object {
 	switch node := node.(type) {
 	//文
 	case *ast.Program:
 		return evalProgram(node)
+	// 式
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression)
-	// 式
+	// 整数値
 	case *ast.IntegerLiteral:
 		return &object.Integer{Value: node.Value}
 	// 真偽値
 	case *ast.Boolean:
 		return nativeBoolToBooleanObject(node.Value)
+	// 前置演算子
 	case *ast.PrefixExpression:
 		right := Eval(node.Right)
+		if isError(right) {
+			return right
+		}
 		return evalPrefixExpression(node.Operator, right)
+	// 中間演算子
 	case *ast.InfixExpression:
 		left := Eval(node.Left)
+		if isError(left) {
+			return left
+		}
 		right := Eval(node.Right)
+		if isError(right) {
+			return right
+		}
 		return evalInfixExperssion(node.Operator, left, right)
+	// Block
 	case *ast.BlockStatement:
 		return evalBlockStatement(node)
+	// If
 	case *ast.IfExpression:
 		return evalIfExpression(node)
+	// Return
 	case *ast.ReturnStatement:
 		val := Eval(node.ReturnValue)
+		if isError(val) {
+			return val
+		}
 		return &object.ReturnValue{Value: val}
 	}
 	return nil
@@ -58,8 +84,11 @@ func evalProgram(program *ast.Program) object.Object {
 	for _, statement := range program.Statements {
 		result = Eval(statement)
 
-		if returnValue, ok := result.(*object.ReturnValue); ok {
-			return returnValue.Value
+		switch result := result.(type) {
+		case *object.ReturnValue:
+			return result.Value // return 見つけたらラップしてるValueを返す
+		case *object.Error:
+			return result
 		}
 	}
 	return result
@@ -72,8 +101,11 @@ func evalBlockStatement(block *ast.BlockStatement) object.Object {
 	for _, statement := range block.Statements {
 		result = Eval(statement)
 
-		if result != nil && result.Type() == object.RETURN_VALUE_OBJ {
-			return result
+		if result != nil {
+			rt := result.Type()
+			if rt == object.RETURN_VALUE_OBJ || rt == object.ERROR_OBJ {
+				return result // Return, Error を見つけたら即中止
+			}
 		}
 	}
 	return result
@@ -176,7 +208,11 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 
 func evalIfExpression(ie *ast.IfExpression) object.Object {
 	condition := Eval(ie.Condition)	// condition を評価
-	
+
+	// 条件をエラーチェック
+	if isError(condition) {
+		return condition
+	}
 	if isTruthy(condition) {
 		return Eval(ie.Consequence)	// If側を返す
 	} else if ie.Alternative != nil {
