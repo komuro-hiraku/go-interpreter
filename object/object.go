@@ -8,6 +8,7 @@ const (
 	INTEGER_OBJ = "INTEGER"
 	BOOLEAN_OBJ = "BOOLEAN"
 	NULL_OBJ = "NULL"
+	RETURN_VALUE_OBJ = "RETURN_VALUE"
 )
 
 // 値の内部表現をそれぞれ別個に定義するためInterfaceを切る
@@ -49,3 +50,9 @@ func (n *Null) Type() ObjectType {
 	return NULL_OBJ
 }
 
+// return
+type ReturnValue struct {
+	Value Object
+}
+func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
+func (rv *ReturnValue) Inspect() string { return rv.Value.Inspect()}
