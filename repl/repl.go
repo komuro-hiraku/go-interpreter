@@ -7,6 +7,7 @@ import (
 
 	"github.com/komuro-hiraku/monkey/evaluator"
 	"github.com/komuro-hiraku/monkey/lexer"
+	"github.com/komuro-hiraku/monkey/object"
 	"github.com/komuro-hiraku/monkey/parser"
 )
 
@@ -27,13 +28,14 @@ func Start(in io.Reader, out io.Writer) {
 		p := parser.New(l)
 
 		program := p.ParseProgram()
+		env := object.NewEnvironment()
 		if len(p.Errors()) != 0 {
 			printParserErrors(out, p.Errors())
 			continue
 		}
 
 		// 評価
-		evaluated := evaluator.Eval(program)
+		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
 			io.WriteString(out, evaluated.Inspect())
 			io.WriteString(out, "\n")
