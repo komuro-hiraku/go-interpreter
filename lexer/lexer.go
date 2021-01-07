@@ -71,6 +71,9 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.LBRACE, l.ch)
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
+	case '"':
+		tok.Type = token.STRING
+		tok.Literal = l.readString()
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
@@ -90,6 +93,22 @@ func (l *Lexer) NextToken() token.Token {
 
 	l.readChar()
 	return tok
+}
+
+// Literalを読み込む（STRING用）
+func (l *Lexer) readString() string {
+	position := l.position + 1
+	for {
+		l.readChar()	// 「"」か読むこむ対象がなくなるまで読みすすめる
+
+		// TODO: 入力が不完全で終端したときにエラーにする
+		// TODO: 文字エスケープを実装（\"を許容する）
+		if l.ch == '"' || l.ch == 0 {
+			break
+		}
+	}
+	// 読み進めたIndexまでのスライス
+	return l.input[position:l.position]
 }
 
 // 一つ先のTokenを読んで返すだけ。readCharとの違いは Increment しない

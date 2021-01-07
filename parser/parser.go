@@ -59,6 +59,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(token.STRING, p.parseStringLiteral)
 
 	// 中置識別子の初期化
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
@@ -365,6 +366,10 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 	}
 	return args
 }
+
+func (p *Parser) parseStringLiteral() ast.Expression {
+	return &ast.StringLiteral{ Token: p.curToken, Value: p.curToken.Literal }
+} 
 
 // curToken の Type が指定されたものと一致するかどうかの Assertion
 func (p *Parser) curTokenIs(t token.TokenType) bool {
